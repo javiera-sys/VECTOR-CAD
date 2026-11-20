@@ -1,3 +1,4 @@
+[README.md](https://github.com/user-attachments/files/35189835/README.md)
 # VECTOR-CAD
 ### Conversor inteligente de imágenes a geometría vectorial CAD
 
@@ -74,14 +75,14 @@ Incorpora herramientas para revisar la geometría procesada y obtener estadísti
 
 ### 7. Exportación CAD
 
-Permite exportar la geometría generada a formato **DXF**, compatible con aplicaciones CAD.
+Permite exportar la geometría generada a formato **DXF**, compatible con aplicaciones CAD (validado con `ezdxf`).
 
 Opciones de exportación:
 
 - Milímetros (mm).
 - Centímetros (cm).
 - Pulgadas (in).
-- Ajuste de escala.
+- Ajuste de escala. Se asume **1 px = 1 mm × Escala** y el resultado se convierte a la unidad elegida (p. ej. 100 px a escala 1 = 100 mm = 10 cm = 3.937 in).
 - Configuración de precisión decimal.
 
 El archivo DXF organiza la geometría mediante capas, facilitando su identificación y manipulación posterior.
@@ -148,6 +149,7 @@ VECTOR-CAD/
 │   ├── geometryCleaner.js
 │   ├── duplicateDetector.js
 │   ├── dxfExporter.js
+│   ├── vectorize_worker.js
 │   ├── vectorEditor.js
 │   ├── qualityChecker.js
 │   └── app.js
@@ -186,6 +188,20 @@ Su desarrollo está enfocado especialmente en resolver uno de los problemas habi
 - Procesamiento de imágenes rasterizadas.
 
 **Importante:** Actualmente, la exportación implementada es DXF. Los archivos DWG pueden obtenerse posteriormente mediante un programa CAD compatible con conversión DXF a DWG.
+
+---
+
+## Correcciones importantes (versión actual)
+
+- **«Procesar» ya no se cuelga.**
+  - `waitOpenCV` resolvía una promesa con el objeto `cv` de OpenCV.js 4.x (un *thenable*), lo que dejaba la promesa pendiente para siempre. Ahora solo espera a `cv.Mat` y se usa `window.cv`.
+  - El esqueletizado (Zhang-Suen) recorría toda la imagen en cada pasada y bloqueaba la página. Ahora solo reevalúa píxeles de borde (≈20× más rápido) y se ejecuta en un **Web Worker** (`js/vectorize_worker.js`). Si el navegador bloquea workers (abrir con `file://`), cae automáticamente al hilo principal.
+  - SMART ya no esqueletiza dos veces ni esqueletiza imágenes densas que irán a OUTLINE.
+- **Centerline:** el trazado de ramas perdía píxeles en uniones y fragmentaba las líneas diagonales en cientos de tramos. Ahora se recorre como grafo (cada tramo una sola vez) y se eliminan píxeles de esquina redundantes. Solo se podan espuelas cortas, ya no conectores.
+- **Eliminación de duplicados:** al quitar un tramo repetido, la polilínea unía extremos no contiguos creando líneas falsas; ahora se parte en ese punto. Se conservan capa y estado *cerrado* (los contornos ya no pierden su último segmento y siguen como `GEOMETRIA_INTERIOR`/`CONTORNOS`). El control «Unificar colineales» ahora sí funciona.
+- **Preprocesado:** «Min área» usaba `contourArea`, que borraba líneas finas; ahora cuenta píxeles reales. Las imágenes PNG/WEBP con transparencia se rellenan con fondo blanco (antes el fondo transparente se leía como negro). Se eliminó el control «Gris», que no tenía efecto.
+- **Exportación DXF:** las unidades cm/in multiplicaban en vez de dividir, la tabla de capas declaraba 3 en lugar de 4, faltaban la tabla `LTYPE` y los marcadores de subclase de `LWPOLYLINE`.
+- **Interfaz:** al cargar una imagen nueva se limpia la geometría anterior, se puede volver a elegir el mismo archivo, se evita lanzar «Procesar» dos veces a la vez y se corrigió la alineación de casillas y opciones del panel.
 
 ---
 
