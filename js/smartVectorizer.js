@@ -1,17 +1,22 @@
 // Decide método según grosor y estructura
 window.SmartVectorizer = (function(){
-  function analyze(binData, w, h){
-    // grosor medio aproximado: área / longitud esqueleto
+  // densidad barata (sin esqueletizar): permite descartar imágenes muy llenas antes del trabajo pesado
+  function density(binData){
     let area=0;
     for (let i=0;i<binData.length;i++) if (binData[i]) area++;
-    const sk = window.Centerline.run(binData, w, h, {simplify:1});
+    return binData.length ? area/binData.length : 0;
+  }
+
+  // polys: polilíneas de centerline ya calculadas (se reutilizan, no se vuelve a esqueletizar)
+  function analyze(binData, polys){
+    let area=0;
+    for (let i=0;i<binData.length;i++) if (binData[i]) area++;
     let skLen=0;
-    for (const p of sk){
+    for (const p of polys){
       for (let i=1;i<p.length;i++) skLen += Math.hypot(p[i][0]-p[i-1][0], p[i][1]-p[i-1][1]);
     }
     const avgThickness = skLen>0 ? area/skLen : 0;
-    const density = area/(w*h);
-    return { avgThickness, density, area, skLen };
+    return { avgThickness, density: density(binData), area, skLen };
   }
 
   function decide(analysis, params){
@@ -19,8 +24,8 @@ window.SmartVectorizer = (function(){
     if (analysis.area===0) return 'centerline';
     if (t <= (params.strokeMax||12) && analysis.density < 0.35) return 'centerline';
     if (analysis.density > 0.35) return 'outline';
-    return 'centerline';
+    return 'outline';
   }
 
-  return { analyze, decide };
+  return { density, analyze, decide };
 })();
