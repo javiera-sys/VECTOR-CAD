@@ -4,6 +4,7 @@
   --border:#2a2f3a;
 }
 *{box-sizing:border-box}
+:root{color-scheme:dark}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:13px}
 button{
@@ -32,7 +33,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .panel h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
 .panel label{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;color:var(--muted)}
 .panel label input[type=range]{width:100%}
-.panel label input[type=checkbox]{align-self:flex-start}
+.panel label:has(> input[type=checkbox]),
+.panel label:has(> input[type=radio]){flex-direction:row;align-items:center;gap:6px}
+.panel label input[type=checkbox],.panel label input[type=radio]{margin:0}
 .hint{color:var(--muted);font-size:11px}
 select,input[type=number],input[type=file]{
   background:var(--panel2);border:1px solid var(--border);color:var(--text);
