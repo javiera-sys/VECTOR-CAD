@@ -44,6 +44,9 @@
       current.imageCanvas = canvas;
       current.imageData = imageData;
       current.w = canvas.width; current.h = canvas.height;
+      current.entities = []; current.bin = null; current.history.length = 0; current.future.length = 0;
+      window.VectorEditor.setEntities([]); updateStats();
+      $('audit').textContent = 'Sin auditoría ejecutada.';
       const img = new Image();
       img.src = canvas.toDataURL();
       await img.decode();
@@ -55,84 +58,138 @@
     } catch(e){ log('Error cargando imagen: '+e.message); }
   }
 
+  // Esqueletizado en Web Worker; si no está disponible (p. ej. abierto con file://) cae al hilo principal.
+  let workerBroken = false;
+  function runCenterline(bin, p){
+    return new Promise((resolve,reject)=>{
+      const sync = ()=> setTimeout(()=>{
+        try { resolve(window.Centerline.run(bin.data, bin.width, bin.height, {simplify:p.simplify})); }
+        catch(e){ reject(e); }
+      }, 30);
+      if (workerBroken || !window.Worker) return sync();
+      let w;
+      try { w = new Worker('js/vectorize_worker.js'); }
+      catch(e){ workerBroken = true; log('Worker no disponible, usando hilo principal.'); return sync(); }
+      w.onmessage = ev=>{ w.terminate(); ev.data.ok ? resolve(ev.data.polys) : reject(new Error(ev.data.error)); };
+      w.onerror = ()=>{ w.terminate(); workerBroken = true; log('Worker no disponible (¿abierto con file://?), usando hilo principal.'); sync(); };
+      w.postMessage({task:'centerline', payload:{data:bin.data, w:bin.width, h:bin.height, params:{simplify:p.simplify}}});
+    });
+  }
+
+  // Limpia duplicados conservando capa y estado "cerrado" de cada entidad original.
+  function cleanEntities(entities, p){
+    const polys = entities.filter(e=>e.type==='polyline');
+    // los polígonos cerrados se pasan con el punto inicial repetido para no perder el último segmento
+    const input = polys.map(e=> e.closed && e.points.length>2 ? e.points.concat([e.points[0]]) : e.points);
+    const r = window.DuplicateDetector.run(input, {tol:p.tol, angTol:p.angTol, merge:p.mergeCollinear});
+    const out = r.polylines.map((pts,i)=>{
+      const src = polys[r.sources[i]];
+      let closed = false;
+      if (src.closed && pts.length>3){
+        const f=pts[0], l=pts[pts.length-1];
+        if (Math.hypot(f[0]-l[0], f[1]-l[1]) <= Math.max(1e-6, p.tol*0.5)){ closed = true; pts = pts.slice(0,-1); }
+      }
+      return {type:'polyline', points:pts, closed, layer: src.layer || 'LINEAS_CENTRALES'};
+    });
+    return {entities: out, stats: r.stats};
+  }
+
+  const setMsg = (t)=>{ $('overlayMsg').style.display='flex'; $('overlayMsg').textContent=t; };
+  let busy = false;
+
   async function process(){
     if (!current.imageData){ log('Sin imagen para procesar.'); return; }
-    $('overlayMsg').style.display='flex';
-    $('overlayMsg').textContent = 'Procesando…';
+    if (busy) return;
+    busy = true;
+    setMsg('Procesando…');
     await new Promise(r=>setTimeout(r,20));
     try {
-      const cv = await window.ImageProcessor.waitOpenCV();
+      setMsg('Esperando OpenCV…');
+      await window.ImageProcessor.waitOpenCV();
+      const cv = window.cv;
       const p = params();
+      setMsg('Preprocesando imagen…');
+      await new Promise(r=>setTimeout(r,0));
       const bin = window.ImageProcessor.preprocess(cv, current.imageData, p);
       current.bin = bin; current.w = bin.width; current.h = bin.height;
 
       const mode = document.querySelector('input[name="mode"]:checked').value;
       let entities = [];
+      let useCL = (mode==='centerline');
+      let polys = null;
 
-      if (mode==='centerline' || mode==='smart'){
-        let useCL = (mode==='centerline');
-        if (mode==='smart'){
-          const a = window.SmartVectorizer.analyze(bin.data, bin.width, bin.height);
+      if (mode==='smart'){
+        const dens = window.SmartVectorizer.density(bin.data);
+        if (dens > 0.35){
+          useCL = false;
+          log(`SMART: densidad=${dens.toFixed(2)} → OUTLINE`);
+        } else {
+          setMsg('Analizando trazos…');
+          polys = await runCenterline(bin, p);
+          const a = window.SmartVectorizer.analyze(bin.data, polys);
           useCL = window.SmartVectorizer.decide(a, p) === 'centerline';
           log(`SMART: grosor≈${a.avgThickness.toFixed(2)}px densidad=${a.density.toFixed(2)} → ${useCL?'CENTERLINE':'OUTLINE'}`);
         }
-        if (useCL){
-          const polys = window.Centerline.run(bin.data, bin.width, bin.height, p);
-          entities = polys.map(pts=>({type:'polyline', points:pts, closed:false, layer:'LINEAS_CENTRALES'}));
-        }
+      } else if (useCL){
+        setMsg('Calculando líneas centrales…');
+        polys = await runCenterline(bin, p);
+      }
+
+      if (useCL && polys){
+        entities = polys.map(pts=>({type:'polyline', points:pts, closed:false, layer:'LINEAS_CENTRALES'}));
       }
       if (mode==='outline' || (mode==='smart' && entities.length===0)){
-        const polys = window.Outline.run(cv, bin.data, bin.width, bin.height, p);
-        entities = polys.map(o=>({
-          type:'polyline', points:o.points, closed:o.closed,
-          layer: o.hole? 'GEOMETRIA_INTERIOR':'CONTORNOS'
+        setMsg('Extrayendo contornos…');
+        await new Promise(r=>setTimeout(r,0));
+        const o = window.Outline.run(cv, bin.data, bin.width, bin.height, p);
+        entities = o.map(c=>({
+          type:'polyline', points:c.points, closed:c.closed,
+          layer: c.hole? 'GEOMETRIA_INTERIOR':'CONTORNOS'
         }));
       }
 
-      // limpieza de duplicados
-      const clean = window.DuplicateDetector.run(
-        entities.filter(e=>e.type==='polyline').map(e=>e.points),
-        {tol:p.tol, angTol:p.angTol}
-      );
-      entities = clean.polylines.map(pts=>({
-        type:'polyline', points:pts, closed:false,
-        layer: entities[0]?.layer || 'LINEAS_CENTRALES'
-      }));
+      setMsg('Limpiando duplicados…');
+      await new Promise(r=>setTimeout(r,0));
+      const res = cleanEntities(entities, p);
+      entities = res.entities;
 
       pushHistory();
       current.entities = entities;
       window.VectorEditor.setEntities(entities);
       updateStats();
-      log(`Procesado: ${entities.length} polilíneas. Duplicados eliminados: ${clean.stats.segmentosDuplicadosEliminados}`);
-
-      $('audit').textContent =
-        `Duplicados encontrados: ${clean.stats.segmentosDuplicadosEncontrados}\n`+
-        `Duplicados eliminados: ${clean.stats.segmentosDuplicadosEliminados}\n`+
-        `Polilíneas unificadas: ${clean.stats.polilineasUnificadas}`;
+      log(`Procesado: ${entities.length} polilíneas. Duplicados eliminados: ${res.stats.segmentosDuplicadosEliminados}`);
+      showAudit(res.stats);
     } catch(e){
       log('Error procesando: '+e.message);
     } finally {
       $('overlayMsg').style.display='none';
+      busy = false;
     }
+  }
+
+  function showAudit(st){
+    $('audit').textContent =
+      `Duplicados encontrados: ${st.segmentosDuplicadosEncontrados}\n`+
+      `Duplicados eliminados: ${st.segmentosDuplicadosEliminados}\n`+
+      `Puntos colineales eliminados: ${st.puntosColinealesEliminados}`;
   }
 
   function clean(){
     if (!current.entities.length){ log('Nada que limpiar.'); return; }
     pushHistory();
-    const p = params();
-    const polys = current.entities.filter(e=>e.type==='polyline').map(e=>e.points);
-    const r = window.DuplicateDetector.run(polys, {tol:p.tol, angTol:p.angTol});
-    current.entities = r.polylines.map(pts=>({type:'polyline', points:pts, closed:false, layer:'LINEAS_CENTRALES'}));
+    const res = cleanEntities(current.entities, params());
+    current.entities = res.entities;
     window.VectorEditor.setEntities(current.entities);
     updateStats();
-    log(`Limpieza: ${r.stats.segmentosDuplicadosEliminados} duplicados eliminados.`);
+    showAudit(res.stats);
+    log(`Limpieza: ${res.stats.segmentosDuplicadosEliminados} duplicados eliminados.`);
   }
 
   function audit(){
     if (!current.entities.length){ log('Sin geometría para auditar.'); return; }
     const a = window.QualityChecker.audit(current.entities);
     $('audit').textContent =
-      `Duplicados: ${a.duplicados}\nEliminados: ${a.eliminados}\nUnificados: ${a.unificados}\n`+
+      `Duplicados: ${a.duplicados}\nEliminados: ${a.eliminados}\nPuntos colineales: ${a.unificados}\n`+
       `Estado: ${a.ok?'LIMPIO':'REVISAR'}`;
     log('Auditoría ejecutada.');
   }
@@ -171,6 +228,7 @@
   // ===== Bind UI =====
   $('fileInput').addEventListener('change', e=>{
     const f = e.target.files[0]; if (f) loadFile(f);
+    e.target.value = ''; // permite volver a elegir el mismo archivo
   });
   $('btnOpen').addEventListener('click', ()=> $('fileInput').click());
   $('btnProcess').addEventListener('click', process);
@@ -192,7 +250,7 @@
   wrap.addEventListener('dragover', e=>{ e.preventDefault(); });
   wrap.addEventListener('drop', e=>{
     e.preventDefault();
-    const f = e.dataTransfer.files[0]; if (f) loadFile(f);
+    const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadFile(f); else if (f) log('Archivo no compatible: '+f.name);
   });
 
   // init
