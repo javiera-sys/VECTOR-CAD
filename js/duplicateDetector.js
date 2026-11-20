@@ -19,55 +19,51 @@ window.DuplicateDetector = (function(){
     return Math.hypot(px-cx, py-cy);
   }
 
+  // polylines: arrays de puntos. Devuelve polilíneas limpias + sources[i] = índice de la polilínea original
+  // (para conservar capa y estado cerrado). Los tramos duplicados se eliminan y la polilínea se PARTE
+  // en ese punto (antes se unían extremos no contiguos creando líneas falsas).
   function run(polylines, params){
     const tol = params.tol ?? 1;
+    const doMerge = params.merge !== false;
     const seen = new Map();
-    const kept = [];
-    let removed=0, merged=0;
+    const kept = [], sources = [];
+    let removed=0, pointsBefore=0, pointsAfter=0;
 
-    for (const p of polylines){
-      // dividir en segmentos
-      const segs=[];
-      for (let i=1;i<p.length;i++) segs.push([p[i-1],p[i]]);
-      const newSegs=[];
-      for (const s of segs){
+    polylines.forEach((p, idx)=>{
+      const runs=[]; let cur=null;
+      for (let i=1;i<p.length;i++){
+        const s=[p[i-1],p[i]];
         const k = segKey(s[0],s[1],tol);
+        let dup=false;
         if (seen.has(k)){
           const prev = seen.get(k);
-          // verificar realmente cercanía
-          if (pointSegDist(s[0],prev[0],prev[1])<=tol &&
-              pointSegDist(s[1],prev[0],prev[1])<=tol){
-            removed++;
-            continue;
-          }
+          if (pointSegDist(s[0],prev[0],prev[1])<=tol && pointSegDist(s[1],prev[0],prev[1])<=tol) dup=true;
         }
+        if (dup){ removed++; cur=null; continue; }
         seen.set(k,s);
-        newSegs.push(s);
+        if (!cur){ cur=[s[0]]; runs.push(cur); }
+        cur.push(s[1]);
       }
-      if (newSegs.length===0) continue;
-      // reconstruir polilínea
-      const np=[newSegs[0][0]];
-      for (const s of newSegs) np.push(s[1]);
-      // deduplicar puntos consecutivos
-      const clean=[];
-      for (const pt of np){
-        if (!clean.length || Math.hypot(pt[0]-clean[clean.length-1][0], pt[1]-clean[clean.length-1][1])>tol*0.5)
-          clean.push(pt);
+      for (const r of runs){
+        const clean=[];
+        for (const pt of r){
+          if (!clean.length || Math.hypot(pt[0]-clean[clean.length-1][0], pt[1]-clean[clean.length-1][1])>tol*0.5)
+            clean.push(pt);
+        }
+        if (clean.length>=2){ kept.push(clean); sources.push(idx); pointsBefore+=clean.length; }
       }
-      if (clean.length>=2) kept.push(clean);
-    }
+    });
 
-    // fusionar colineales
-    const before = kept.length;
-    const mergedPolys = window.GeometryCleaner.mergeCollinear(kept, params.angTol ?? 3);
-    merged = before - mergedPolys.length;
+    const out = doMerge ? window.GeometryCleaner.mergeCollinear(kept, params.angTol ?? 3) : kept;
+    for (const p of out) pointsAfter += p.length;
 
     return {
-      polylines: mergedPolys,
+      polylines: out,
+      sources,
       stats: {
         segmentosDuplicadosEncontrados: removed,
         segmentosDuplicadosEliminados: removed,
-        polilineasUnificadas: Math.max(0, merged),
+        puntosColinealesEliminados: Math.max(0, pointsBefore-pointsAfter),
       }
     };
   }
