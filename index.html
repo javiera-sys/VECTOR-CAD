@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Image to CAD – Conversor Inteligente</title>
+<link rel="stylesheet" href="css/styles.css" />
+<script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Image&nbsp;→&nbsp;CAD</div>
+  <div class="actions">
+    <button id="btnOpen" title="Abrir imagen">Abrir</button>
+    <button id="btnProcess" class="primary" title="Procesar">Procesar</button>
+    <button id="btnClean" title="Limpiar geometría">Limpiar</button>
+    <button id="btnAudit" title="Auditar duplicados">Auditar</button>
+    <button id="btnExport" class="accent" title="Exportar DXF">Exportar DXF</button>
+    <button id="btnUndo" title="Deshacer">↶</button>
+    <button id="btnRedo" title="Rehacer">↷</button>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- PANEL IZQUIERDO -->
+  <aside class="panel left">
+    <section>
+      <h3>Imagen</h3>
+      <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/bmp" />
+      <div class="hint" id="imgInfo">Sin imagen cargada.</div>
+    </section>
+
+    <section>
+      <h3>Preprocesado</h3>
+      <label>Gris <input type="range" id="grayMix" min="0" max="1" step="0.01" value="1" /></label>
+      <label>Contraste <input type="range" id="contrast" min="0" max="3" step="0.01" value="1" /></label>
+      <label>Brillo <input type="range" id="brightness" min="-100" max="100" step="1" value="0" /></label>
+      <label>Umbral <input type="range" id="threshold" min="0" max="255" step="1" value="128" /></label>
+      <label>Blur <input type="range" id="blur" min="0" max="10" step="1" value="0" /></label>
+      <label>Min área <input type="range" id="minArea" min="0" max="500" step="1" value="20" /></label>
+      <label><input type="checkbox" id="invert" /> Invertir (trazo claro sobre fondo oscuro)</label>
+    </section>
+
+    <section>
+      <h3>Vectorización</h3>
+      <label><input type="radio" name="mode" value="smart" checked /> SMART</label>
+      <label><input type="radio" name="mode" value="centerline" /> CENTERLINE</label>
+      <label><input type="radio" name="mode" value="outline" /> OUTLINE</label>
+      <label>Simplificación (px) <input type="range" id="simplify" min="0" max="5" step="0.1" value="1.2" /></label>
+      <label>Grosor máx. trazo (px) <input type="range" id="strokeMax" min="1" max="40" step="1" value="12" /></label>
+    </section>
+
+    <section>
+      <h3>Limpieza de duplicados</h3>
+      <label>Tolerancia (px) <input type="range" id="tol" min="0.1" max="5" step="0.1" value="1" /></label>
+      <label>Ángulo tol. (°) <input type="range" id="angTol" min="0.5" max="10" step="0.5" value="3" /></label>
+      <label><input type="checkbox" id="mergeCollinear" checked /> Unificar colineales</label>
+    </section>
+
+    <section>
+      <h3>Exportación</h3>
+      <label>Unidades
+        <select id="units">
+          <option value="mm">Milímetros</option>
+          <option value="cm">Centímetros</option>
+          <option value="in">Pulgadas</option>
+        </select>
+      </label>
+      <label>Escala <input type="number" id="scale" value="1" step="0.01" min="0.01" /></label>
+      <label>Decimales <input type="number" id="decimals" value="3" min="0" max="6" /></label>
+    </section>
+  </aside>
+
+  <!-- PANEL CENTRAL -->
+  <section class="workspace">
+    <div class="toolbar">
+      <button id="btnFit">Ajustar</button>
+      <button id="btnZoomIn">+</button>
+      <button id="btnZoomOut">−</button>
+      <label><input type="checkbox" id="showImage" checked /> Imagen</label>
+      <label><input type="checkbox" id="showVectors" checked /> Vectores</label>
+      <label><input type="checkbox" id="showNodes" /> Nodos</label>
+      <label>Color <input type="color" id="vecColor" value="#00e0ff" /></label>
+    </div>
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="view"></canvas>
+      <div id="overlayMsg" class="overlay-msg">Carga una imagen para comenzar.</div>
+    </div>
+  </section>
+
+  <!-- PANEL DERECHO -->
+  <aside class="panel right">
+    <section>
+      <h3>Estadísticas</h3>
+      <div id="stats" class="stats">—</div>
+    </section>
+    <section>
+      <h3>Auditoría</h3>
+      <div id="audit" class="stats">Sin auditoría ejecutada.</div>
+    </section>
+    <section>
+      <h3>Registro</h3>
+      <div id="log" class="log"></div>
+    </section>
+  </aside>
+</main>
+
+<script src="js/imageProcessor.js"></script>
+<script src="js/centerline.js"></script>
+<script src="js/outline.js"></script>
+<script src="js/smartVectorizer.js"></script>
+<script src="js/geometryCleaner.js"></script>
+<script src="js/duplicateDetector.js"></script>
+<script src="js/dxfExporter.js"></script>
+<script src="js/vectorEditor.js"></script>
+<script src="js/qualityChecker.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
