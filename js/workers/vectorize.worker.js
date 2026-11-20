@@ -1,4 +1,5 @@
-// Worker de vectorización (ejecuta tareas pesadas fuera del hilo principal)
+// Worker de vectorización (ejecuta el esqueletizado fuera del hilo principal)
+importScripts('centerline.js');
 self.onmessage = function(ev){
   const { task, payload } = ev.data;
   try {
