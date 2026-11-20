@@ -1,11 +1,13 @@
 // Preprocesado de imagen con OpenCV.js
 window.ImageProcessor = (function(){
-  function waitOpenCV(timeoutMs=15000){
+  // OpenCV.js 4.x expone `cv` como objeto "thenable": resolver una promesa con él se cuelga para siempre.
+  // Por eso solo se espera a que cv.Mat exista y los demás módulos usan window.cv directamente.
+  function waitOpenCV(timeoutMs=60000){
     return new Promise((resolve,reject)=>{
       const start = Date.now();
       (function check(){
-        if (window.cv && cv.Mat) return resolve(cv);
-        if (Date.now()-start>timeoutMs) return reject(new Error('OpenCV.js no disponible'));
+        if (window.cv && window.cv.Mat) return resolve(true);
+        if (Date.now()-start>timeoutMs) return reject(new Error('OpenCV.js no disponible (revisa tu conexión a Internet)'));
         setTimeout(check,100);
       })();
     });
@@ -17,8 +19,11 @@ window.ImageProcessor = (function(){
       img.onload = ()=>{
         const c = document.createElement('canvas');
         c.width = img.naturalWidth; c.height = img.naturalHeight;
-        c.getContext('2d').drawImage(img,0,0);
-        resolve({canvas:c, imageData: c.getContext('2d').getImageData(0,0,c.width,c.height)});
+        const g = c.getContext('2d');
+        g.fillStyle = '#fff'; g.fillRect(0,0,c.width,c.height); // PNG/WEBP transparentes: fondo blanco (no negro)
+        g.drawImage(img,0,0);
+        URL.revokeObjectURL(img.src);
+        resolve({canvas:c, imageData: g.getImageData(0,0,c.width,c.height)});
       };
       img.onerror = ()=>reject(new Error('No se pudo cargar la imagen'));
       img.src = URL.createObjectURL(file);
@@ -48,19 +53,15 @@ window.ImageProcessor = (function(){
       cv.bitwise_not(bin, bin);
     }
 
-    // eliminar manchas pequeñas
+    // eliminar manchas pequeñas por NÚMERO DE PÍXELES (contourArea daba ~0 en líneas finas y las borraba)
     if (params.minArea>0){
-      const contours = new cv.MatVector();
-      const hier = new cv.Mat();
-      cv.findContours(bin, contours, hier, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
-      for (let i=0;i<contours.size();i++){
-        const c = contours.get(i);
-        if (cv.contourArea(c) < params.minArea){
-          cv.drawContours(bin, contours, i, new cv.Scalar(0), -1);
-        }
-        c.delete();
-      }
-      contours.delete(); hier.delete();
+      const labels = new cv.Mat(), stats = new cv.Mat(), cent = new cv.Mat();
+      const n = cv.connectedComponentsWithStats(bin, labels, stats, cent, 8);
+      const keep = new Uint8Array(n);
+      for (let i=1;i<n;i++) keep[i] = stats.data32S[i*5+4] >= params.minArea ? 1 : 0;
+      const L = labels.data32S, B = bin.data;
+      for (let i=0;i<L.length;i++) if (L[i]>0 && !keep[L[i]]) B[i]=0;
+      labels.delete(); stats.delete(); cent.delete();
     }
 
     const result = { width: bin.cols, height: bin.rows, data: new Uint8Array(bin.data) };
