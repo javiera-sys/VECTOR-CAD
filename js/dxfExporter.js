@@ -1,9 +1,10 @@
 // Exportador DXF ASCII mínimo (LWPOLYLINE) compatible con AutoCAD
 window.DXFExporter = (function(){
 
+  // Se asume 1 px = 1 mm × Escala; unitFactor = cuántos mm tiene 1 unidad CAD elegida.
   function unitFactor(units){
-    if (units==='cm') return 10;   // 1 unidad CAD = 10 mm
-    if (units==='in') return 25.4; // 1 unidad CAD = 25.4 mm
+    if (units==='cm') return 10;
+    if (units==='in') return 25.4;
     return 1;
   }
 
@@ -16,7 +17,8 @@ window.DXFExporter = (function(){
       '9','$INSUNITS','70',String(insUnits),
       '0','ENDSEC',
       '0','SECTION','2','TABLES',
-      '0','TABLE','2','LAYER','70','3',
+      '0','TABLE','2','LTYPE','70','1','0','LTYPE','2','CONTINUOUS','70','0','3','Solid line','72','65','73','0','40','0.0','0','ENDTAB',
+      '0','TABLE','2','LAYER','70','4',
       ...layerDef('0'),
       ...layerDef('CONTORNOS'),
       ...layerDef('LINEAS_CENTRALES'),
@@ -31,12 +33,13 @@ window.DXFExporter = (function(){
   }
 
   function num(v, dec){
-    return Number(v).toFixed(dec);
+    const s = Number(v).toFixed(dec);
+    return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s; // evita "-0.000"
   }
 
   function lwpolyline(points, layer, closed, scale, dec){
     if (points.length<2) return [];
-    const out=['0','LWPOLYLINE','8',layer,'90',String(points.length),'70',closed?'1':'0'];
+    const out=['0','LWPOLYLINE','100','AcDbEntity','8',layer,'100','AcDbPolyline','90',String(points.length),'70',closed?'1':'0'];
     for (const [x,y] of points){
       out.push('10', num(x*scale, dec));
       out.push('20', num(-y*scale, dec)); // invertir Y para CAD
@@ -45,7 +48,7 @@ window.DXFExporter = (function(){
   }
 
   function build(entities, opts){
-    const scale = (opts.scale||1) * unitFactor(opts.units);
+    const scale = (opts.scale||1) / unitFactor(opts.units); // mm → unidad elegida
     const dec = opts.decimals ?? 3;
     const lines = writeHeader(opts.scale, opts.units, dec);
 
@@ -71,7 +74,7 @@ window.DXFExporter = (function(){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
-    a.click();
+    document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 1000);
   }
 
