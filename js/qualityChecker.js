@@ -20,7 +20,7 @@ window.QualityChecker = (function(){
     return {
       duplicados: r.stats.segmentosDuplicadosEncontrados,
       eliminados: r.stats.segmentosDuplicadosEliminados,
-      unificados: r.stats.polilineasUnificadas,
+      unificados: r.stats.puntosColinealesEliminados,
       ok: r.stats.segmentosDuplicadosEncontrados===0,
     };
   }
