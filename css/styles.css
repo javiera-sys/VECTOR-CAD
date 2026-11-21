@@ -163,3 +163,22 @@ details.adv[open]>summary::before{content:"– "}
   .actions{gap:6px}
   .brand-name{font-size:13px}
 }
+
+/* ---------- ventana de selección de modo ---------- */
+.modal{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  background:rgba(8,10,14,.66);padding:16px}
+.modal[hidden]{display:none}
+.modal-box{background:var(--panel);border:1px solid var(--line2);border-radius:8px;width:min(460px,100%);
+  max-height:100%;overflow:auto;padding:16px}
+.modal-box h2{margin:0 0 4px;font-size:15px}
+.opt{display:flex;align-items:flex-start;gap:10px;margin:10px 0 0;padding:10px;border:1px solid var(--line2);
+  border-radius:6px;cursor:pointer;color:var(--text)}
+.opt:hover{background:var(--panel2)}
+.opt:has(input:checked){border-color:var(--blue);background:#1b2a44}
+.opt input{margin-top:3px}
+.opt .oi{width:48px;height:32px;flex:none;color:var(--blue)}
+.opt b{display:block}
+.opt em{display:block;font-style:normal;font-size:11px;color:var(--muted);margin-top:2px}
+.rec{font-style:normal;font-size:10px;font-weight:600;color:var(--green);border:1px solid var(--green);
+  border-radius:10px;padding:0 6px;margin-left:6px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
