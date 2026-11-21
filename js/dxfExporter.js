@@ -57,6 +57,17 @@ window.DXFExporter = (function(){
         const layer = e.layer || 'LINEAS_CENTRALES';
         const closed = !!e.closed;
         lines.push(...lwpolyline(e.points, layer, closed, scale, dec));
+      } else if (e.type==='circle'){
+        lines.push('0','CIRCLE','100','AcDbEntity','8',e.layer||'LINEAS_CENTRALES','100','AcDbCircle',
+          '10',num(e.cx*scale,dec),'20',num(-e.cy*scale,dec),'30','0','40',num(e.r*scale,dec));
+      } else if (e.type==='arc'){
+        // Y invertida: el sentido de giro se invierte. DXF dibuja siempre en sentido antihorario de 50 a 51.
+        const ang = (x,y)=>{ const d=Math.atan2(-y,x)*180/Math.PI; return ((d%360)+360)%360; };
+        const aS = ang(e.sx-e.cx, e.sy-e.cy), aE = ang(e.ex-e.cx, e.ey-e.cy);
+        const [st,en] = e.dir>0 ? [aE,aS] : [aS,aE];
+        lines.push('0','ARC','100','AcDbEntity','8',e.layer||'LINEAS_CENTRALES','100','AcDbCircle',
+          '10',num(e.cx*scale,dec),'20',num(-e.cy*scale,dec),'30','0','40',num(e.r*scale,dec),
+          '100','AcDbArc','50',num(st,Math.max(dec,4)),'51',num(en,Math.max(dec,4)));
       } else if (e.type==='line'){
         const layer = e.layer || 'LINEAS_CENTRALES';
         lines.push('0','LINE','8',layer,
