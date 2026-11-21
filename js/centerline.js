@@ -190,7 +190,17 @@
     let polys = skeletonToPolylines(sk, w, h);
     polys = pruneShort(polys, 4);
     const eps = params.simplify ?? 1.2;
-    polys = polys.map(p=> rdp(p, eps));
+    // [CORRECCIÓN] Lazos cerrados (primer punto = último): rdp() los reducía a 2 puntos idénticos y se perdían.
+    // Se dividen en el punto más lejano del inicio y se simplifica cada mitad.
+    polys = polys.map(p=>{
+      const a=p[0], b=p[p.length-1];
+      if (p.length>3 && a[0]===b[0] && a[1]===b[1]){
+        let idx=1, dm=-1;
+        for (let i=1;i<p.length-1;i++){ const d=Math.hypot(p[i][0]-a[0], p[i][1]-a[1]); if (d>dm){ dm=d; idx=i; } }
+        return rdp(p.slice(0,idx+1), eps).slice(0,-1).concat(rdp(p.slice(idx), eps));
+      }
+      return rdp(p, eps);
+    });
     return polys.map(p=> p.map(([x,y])=>[x,y]));
   }
 
