@@ -55,3 +55,31 @@
     new ResizeObserver(()=>{ cancelAnimationFrame(raf); raf = requestAnimationFrame(()=>window.VectorEditor.resize()); }).observe(wrap);
   }
 })();
+
+// Ventana de selección de modo de conversión (devuelve 'lines' | 'curves' | 'mixed', o null si se cancela)
+window.GeoModeDialog = (function(){
+  const modal = document.getElementById('geoModal');
+  const radios = ()=>modal.querySelectorAll('input[name=geomode]');
+  function ask(def){
+    return new Promise(resolve=>{
+      radios().forEach(r=>{ r.checked = (r.value===def); });
+      modal.hidden = false;
+      const sel = modal.querySelector('input[name=geomode]:checked'); if (sel) sel.focus();
+      function done(v){
+        modal.hidden = true;
+        document.removeEventListener('keydown', onKey);
+        modal.removeEventListener('click', onBackdrop);
+        document.getElementById('geoOk').onclick = null; document.getElementById('geoCancel').onclick = null;
+        resolve(v);
+      }
+      const chosen = ()=>{ const c = modal.querySelector('input[name=geomode]:checked'); return c ? c.value : null; };
+      const onKey = e=>{ if (e.key==='Escape') done(null); else if (e.key==='Enter' && e.target.tagName!=='BUTTON') done(chosen()); };
+      const onBackdrop = e=>{ if (e.target===modal) done(null); };
+      document.addEventListener('keydown', onKey);
+      modal.addEventListener('click', onBackdrop);
+      document.getElementById('geoOk').onclick = ()=>done(chosen());
+      document.getElementById('geoCancel').onclick = ()=>done(null);
+    });
+  }
+  return { ask };
+})();
