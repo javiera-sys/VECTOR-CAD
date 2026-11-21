@@ -181,7 +181,10 @@
       current.entities = entities;
       window.VectorEditor.setEntities(entities);
       updateStats();
-      if (conv) log(`Modo ${geo==='curves'?'Curvas':'Mixto'}: ${conv.arcos} arcos, ${conv.circulos} círculos.`);
+      if (conv){
+        log(`Modo ${geo==='curves'?'Curvas':'Mixto'}: ${conv.arcos} arcos, ${conv.circulos} círculos.`);
+        if (!conv.arcos && !conv.circulos) log('Advertencia: no se detectaron curvas en esta imagen; todo se deja como líneas. Prueba el modo Curvas o revisa el umbral.');
+      }
       log(conv
         ? `Procesado: ${entities.length} entidades (${entities.length-conv.arcos-conv.circulos} polilíneas, ${conv.arcos} arcos, ${conv.circulos} círculos). Duplicados eliminados: ${res.stats.segmentosDuplicadosEliminados}`
         : `Procesado: ${entities.length} polilíneas. Duplicados eliminados: ${res.stats.segmentosDuplicadosEliminados}`);
