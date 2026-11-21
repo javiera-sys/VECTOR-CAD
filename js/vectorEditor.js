@@ -63,13 +63,17 @@ window.VectorEditor = (function(){
           ctx.moveTo(e.a[0], e.a[1]);
           ctx.lineTo(e.b[0], e.b[1]);
           ctx.stroke();
+        } else if (e.type==='arc'){ // [CURVAS] arco real (el ángulo crece de a1 a a2 si dir>0)
+          ctx.beginPath(); ctx.arc(e.cx, e.cy, e.r, e.a1, e.a2, e.dir<0); ctx.stroke();
+        } else if (e.type==='circle'){
+          ctx.beginPath(); ctx.arc(e.cx, e.cy, e.r, 0, Math.PI*2); ctx.stroke();
         }
       }
       if (state.showNodes){
         ctx.fillStyle = '#ff4d4d';
         const r = 2/state.zoom;
         for (const e of state.entities){
-          const pts = e.type==='polyline'? e.points : [e.a,e.b];
+          const pts = e.type==='polyline'? e.points : e.type==='arc'? [[e.sx,e.sy],[e.ex,e.ey]] : e.type==='circle'? [[e.cx+e.r,e.cy]] : [e.a,e.b];
           for (const [x,y] of pts){ ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
         }
       }
