@@ -1,7 +1,14 @@
 // Orquestador principal
 (function(){
   const $ = (id)=>document.getElementById(id);
-  const log = (msg)=>{ const el=$('log'); el.textContent += msg+'\n'; el.scrollTop=el.scrollHeight; };
+  // [REDISEÑO] log(): mismas llamadas y mensajes; ahora cada línea es un <div> con nivel (error/aviso/ok) para colorearla.
+  const log = (msg)=>{
+    const el=$('log'), d=document.createElement('div'); d.textContent=msg;
+    if (/^error/i.test(msg)) d.className='l-err';
+    else if (/^(advertencia|worker no|archivo no|sin |nada )/i.test(msg)) d.className='l-warn';
+    else if (/^(procesado|limpieza|dxf exportado|imagen cargada|auditor)/i.test(msg)) d.className='l-ok';
+    el.appendChild(d); el.scrollTop=el.scrollHeight;
+  };
 
   let current = {
     imageCanvas:null, imageData:null,
