@@ -153,6 +153,26 @@
   </aside>
 </main>
 
+<div id="geoModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="geoTitle">
+  <div class="modal-box">
+    <h2 id="geoTitle">¿Cómo convertir las geometrías?</h2>
+    <p class="hint">Elige una opción para iniciar el procesamiento.</p>
+    <label class="opt"><input type="radio" name="geomode" value="lines" />
+      <svg class="oi" viewBox="0 0 48 32"><path d="M4 26L16 8l10 14 18-16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>
+      <span><b>Líneas</b><em>Todo en segmentos rectos. Las curvas se aproximan con varios segmentos; esquinas y ángulos se conservan.</em></span></label>
+    <label class="opt"><input type="radio" name="geomode" value="curves" />
+      <svg class="oi" viewBox="0 0 48 32"><path d="M4 28C10 4 38 4 44 28" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>
+      <span><b>Curvas</b><em>Prioriza arcos y círculos reales (más sensible). Evita representar curvas con muchos segmentos.</em></span></label>
+    <label class="opt"><input type="radio" name="geomode" value="mixed" checked />
+      <svg class="oi" viewBox="0 0 48 32"><path d="M4 26H16" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M16 26C20 6 32 6 34 20L44 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></svg>
+      <span><b>Mixto <i class="rec">recomendado</i></b><em>Detecta automáticamente: curvas como arcos o círculos; rectas, esquinas y chaflanes como líneas.</em></span></label>
+    <div class="modal-actions">
+      <button id="geoCancel" type="button">Cancelar</button>
+      <button id="geoOk" type="button" class="primary">Procesar</button>
+    </div>
+  </div>
+</div>
+
 <footer class="statusbar">
   <span class="si"><i class="dot" id="stDot"></i><span id="stProc">Listo</span></span>
   <span class="si" id="stDims">Sin imagen cargada.</span>
@@ -166,6 +186,7 @@
 <script src="js/smartVectorizer.js"></script>
 <script src="js/geometryCleaner.js"></script>
 <script src="js/duplicateDetector.js"></script>
+<script src="js/curveFitter.js"></script>
 <script src="js/dxfExporter.js"></script>
 <script src="js/vectorEditor.js"></script>
 <script src="js/qualityChecker.js"></script>
