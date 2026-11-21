@@ -42,7 +42,8 @@
   function updateStats(){
     const r = window.QualityChecker.report(current.entities);
     $('stats').textContent =
-      `Líneas: ${r.lineas}\nPolilíneas: ${r.polilineas}\nCerradas: ${r.cerradas}\nAbiertas: ${r.abiertas}`;
+      `Líneas: ${r.lineas}\nPolilíneas: ${r.polilineas}\nCerradas: ${r.cerradas}\nAbiertas: ${r.abiertas}`+
+      (r.arcos||r.circulos ? `\nArcos: ${r.arcos}\nCírculos: ${r.circulos}` : '');
   }
 
   async function loadFile(file){
@@ -86,6 +87,7 @@
   // Limpia duplicados conservando capa y estado "cerrado" de cada entidad original.
   function cleanEntities(entities, p){
     const polys = entities.filter(e=>e.type==='polyline');
+    const curves = entities.filter(e=>e.type==='arc' || e.type==='circle'); // [CURVAS] se conservan intactos
     // los polígonos cerrados se pasan con el punto inicial repetido para no perder el último segmento
     const input = polys.map(e=> e.closed && e.points.length>2 ? e.points.concat([e.points[0]]) : e.points);
     const r = window.DuplicateDetector.run(input, {tol:p.tol, angTol:p.angTol, merge:p.mergeCollinear});
@@ -98,13 +100,15 @@
       }
       return {type:'polyline', points:pts, closed, layer: src.layer || 'LINEAS_CENTRALES'};
     });
-    return {entities: out, stats: r.stats};
+    return {entities: out.concat(curves), stats: r.stats};
   }
 
   const setMsg = (t)=>{ $('overlayMsg').style.display='flex'; $('overlayMsg').textContent=t; };
   let busy = false;
 
-  async function process(){
+  // geo: 'lines' (comportamiento original) | 'curves' | 'mixed'  [CURVAS]
+  async function process(geo){
+    geo = geo || 'lines';
     if (!current.imageData){ log('Sin imagen para procesar.'); return; }
     if (busy) return;
     busy = true;
@@ -115,6 +119,8 @@
       await window.ImageProcessor.waitOpenCV();
       const cv = window.cv;
       const p = params();
+      // [CURVAS] para ajustar arcos se extraen vértices más densos (tolerancia de vértice 0.5–0.7 px); modo Líneas intacto.
+      if (geo!=='lines') p.simplify = Math.min(Math.max(p.simplify,0.5),0.7);
       setMsg('Preprocesando imagen…');
       await new Promise(r=>setTimeout(r,0));
       const bin = window.ImageProcessor.preprocess(cv, current.imageData, p);
@@ -157,14 +163,28 @@
 
       setMsg('Limpiando duplicados…');
       await new Promise(r=>setTimeout(r,0));
-      const res = cleanEntities(entities, p);
-      entities = res.entities;
+      let res, conv = null;
+      if (geo==='lines'){
+        res = cleanEntities(entities, p);
+        entities = res.entities;
+      } else {
+        // [CURVAS] duplicados sin unificar colineales (se hace luego solo en los tramos rectos) y ajuste de arcos/círculos
+        res = cleanEntities(entities, Object.assign({}, p, {mergeCollinear:false}));
+        setMsg('Detectando curvas…');
+        await new Promise(r=>setTimeout(r,0));
+        conv = window.CurveFitter.convert(res.entities, {mode:geo, tol:p.tol, angTol:p.angTol, merge:p.mergeCollinear});
+        entities = conv.entities;
+        res.stats.puntosColinealesEliminados += conv.removed;
+      }
 
       pushHistory();
       current.entities = entities;
       window.VectorEditor.setEntities(entities);
       updateStats();
-      log(`Procesado: ${entities.length} polilíneas. Duplicados eliminados: ${res.stats.segmentosDuplicadosEliminados}`);
+      if (conv) log(`Modo ${geo==='curves'?'Curvas':'Mixto'}: ${conv.arcos} arcos, ${conv.circulos} círculos.`);
+      log(conv
+        ? `Procesado: ${entities.length} entidades (${entities.length-conv.arcos-conv.circulos} polilíneas, ${conv.arcos} arcos, ${conv.circulos} círculos). Duplicados eliminados: ${res.stats.segmentosDuplicadosEliminados}`
+        : `Procesado: ${entities.length} polilíneas. Duplicados eliminados: ${res.stats.segmentosDuplicadosEliminados}`);
       showAudit(res.stats);
     } catch(e){
       log('Error procesando: '+e.message);
@@ -244,7 +264,15 @@
     e.target.value = ''; // permite volver a elegir el mismo archivo
   });
   $('btnOpen').addEventListener('click', ()=> $('fileInput').click());
-  $('btnProcess').addEventListener('click', process);
+  // [CURVAS] Procesar pide primero el modo de conversión (Líneas / Curvas / Mixto).
+  let geoMode = 'mixed';
+  $('btnProcess').addEventListener('click', async ()=>{
+    if (!current.imageData || busy) return process();   // process() ya avisa si no hay imagen / ignora si está ocupado
+    const m = window.GeoModeDialog ? await window.GeoModeDialog.ask(geoMode) : 'lines';
+    if (!m) return;                                     // cancelado: no se procesa
+    geoMode = m;
+    process(m);
+  });
   $('btnClean').addEventListener('click', clean);
   $('btnAudit').addEventListener('click', audit);
   $('btnExport').addEventListener('click', exportDXF);
