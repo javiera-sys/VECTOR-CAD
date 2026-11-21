@@ -192,12 +192,18 @@
     log(`Limpieza: ${res.stats.segmentosDuplicadosEliminados} duplicados eliminados.`);
   }
 
-  function audit(){
-    if (!current.entities.length){ log('Sin geometría para auditar.'); return; }
-    const a = window.QualityChecker.audit(current.entities);
+  // [CORRECCIÓN] renderAudit(): el panel de Auditoría se recalcula también al deshacer/rehacer.
+  function renderAudit(){
+    if (!current.entities.length){ $('audit').textContent = 'Sin auditoría ejecutada.'; return false; }
+    const a = window.QualityChecker.audit(current.entities, {merge: params().mergeCollinear});
     $('audit').textContent =
       `Duplicados: ${a.duplicados}\nEliminados: ${a.eliminados}\nPuntos colineales: ${a.unificados}\n`+
       `Estado: ${a.ok?'LIMPIO':'REVISAR'}`;
+    return true;
+  }
+  function audit(){
+    if (!current.entities.length){ log('Sin geometría para auditar.'); return; }
+    renderAudit();
     log('Auditoría ejecutada.');
   }
 
@@ -222,14 +228,14 @@
     current.future.push(JSON.stringify(current.entities));
     current.entities = JSON.parse(current.history.pop());
     window.VectorEditor.setEntities(current.entities);
-    updateStats();
+    updateStats(); renderAudit();
   }
   function redo(){
     if (!current.future.length) return;
     current.history.push(JSON.stringify(current.entities));
     current.entities = JSON.parse(current.future.pop());
     window.VectorEditor.setEntities(current.entities);
-    updateStats();
+    updateStats(); renderAudit();
   }
 
   // ===== Bind UI =====
