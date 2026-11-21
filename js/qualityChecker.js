@@ -2,15 +2,17 @@
 window.QualityChecker = (function(){
 
   function report(entities){
-    let lineas=0, polilineas=0, cerradas=0, abiertas=0;
+    let lineas=0, polilineas=0, cerradas=0, abiertas=0, arcos=0, circulos=0;
     for (const e of entities){
       if (e.type==='line') lineas++;
+      else if (e.type==='arc'){ arcos++; abiertas++; }
+      else if (e.type==='circle'){ circulos++; cerradas++; }
       else if (e.type==='polyline'){
         polilineas++;
         if (e.closed) cerradas++; else abiertas++;
       }
     }
-    return { lineas, polilineas, cerradas, abiertas };
+    return { lineas, polilineas, cerradas, abiertas, arcos, circulos };
   }
 
   // [CORRECCIÓN] opts.merge respeta el checkbox "Unificar colineales" (antes siempre activo).
