@@ -35,7 +35,7 @@ window.VectorEditor = (function(){
   function draw(){
     const w = canvas.width/devicePixelRatio, h = canvas.height/devicePixelRatio;
     ctx.clearRect(0,0,w,h);
-    ctx.fillStyle = '#0b0d10'; ctx.fillRect(0,0,w,h);
+    // [REDISEÑO] fondo opaco retirado: la rejilla técnica la dibuja el CSS detrás del canvas.
     ctx.save();
     ctx.translate(state.tx, state.ty);
     ctx.scale(state.zoom, state.zoom);
@@ -111,6 +111,23 @@ window.VectorEditor = (function(){
     const rect = canvas.getBoundingClientRect();
     zoomBy(e.deltaY<0?1.1:0.9, e.clientX-rect.left, e.clientY-rect.top);
   }, {passive:false});
+
+  // [REDISEÑO] Soporte táctil aditivo (un dedo = desplazar, dos dedos = pellizco). No altera ratón ni rueda.
+  let tch=null;
+  function tsnap(ts){
+    const r=canvas.getBoundingClientRect(), a={x:ts[0].clientX-r.left,y:ts[0].clientY-r.top};
+    if (ts.length<2) return {n:1,x:a.x,y:a.y};
+    const b={x:ts[1].clientX-r.left,y:ts[1].clientY-r.top};
+    return {n:2,x:(a.x+b.x)/2,y:(a.y+b.y)/2,d:Math.hypot(a.x-b.x,a.y-b.y)};
+  }
+  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); tch=tsnap(e.touches); }, {passive:false});
+  canvas.addEventListener('touchmove', e=>{
+    e.preventDefault(); if (!tch || !e.touches.length) return;
+    const c=tsnap(e.touches);
+    if (c.n===tch.n){ pan(c.x-tch.x, c.y-tch.y); if (c.n===2 && tch.d>0) zoomBy(c.d/tch.d, c.x, c.y); }
+    tch=c;
+  }, {passive:false});
+  canvas.addEventListener('touchend', e=>{ tch = e.touches.length ? tsnap(e.touches) : null; });
 
   window.addEventListener('resize', resize);
 
