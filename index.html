@@ -2,84 +2,133 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Image to CAD – Conversor Inteligente</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>VECTOR-CAD – Imagen a vectores y DXF</title>
 <link rel="stylesheet" href="css/styles.css" />
 <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-logo" viewBox="0 0 24 24"><path d="M4 20L10 6l4 8 2-4 4 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><rect x="2.5" y="18.5" width="3" height="3" fill="currentColor"/><rect x="8.5" y="4.5" width="3" height="3" fill="currentColor"/><rect x="18.5" y="18.5" width="3" height="3" fill="currentColor"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></symbol>
+    <symbol id="i-clean" viewBox="0 0 24 24"><path d="M4 20l7-7M9 5l10 10-4 4L5 9zM15 3l2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-audit" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.500-1-8-4-8-9V6z M8.500 12l2.500 2.500 4.500-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-dxf" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 8H15a5 5 0 010 10H8M9 8l3-3M9 8l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 8H9a5 5 0 000 10h7M15 8l-3-3M15 8l-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
 <header class="topbar">
-  <div class="brand">Image&nbsp;→&nbsp;CAD</div>
+  <div class="brand">
+    <svg class="ic brand-ic"><use href="#i-logo"/></svg>
+    <span class="brand-name">VECTOR<b>-CAD</b></span>
+    <span class="proj" id="projState" data-state="empty"><i class="dot"></i><span id="projText">Sin imagen</span></span>
+  </div>
   <div class="actions">
-    <button id="btnOpen" title="Abrir imagen">Abrir</button>
-    <button id="btnProcess" class="primary" title="Procesar">Procesar</button>
-    <button id="btnClean" title="Limpiar geometría">Limpiar</button>
-    <button id="btnAudit" title="Auditar duplicados">Auditar</button>
-    <button id="btnExport" class="accent" title="Exportar DXF">Exportar DXF</button>
-    <button id="btnUndo" title="Deshacer">↶</button>
-    <button id="btnRedo" title="Rehacer">↷</button>
+    <div class="grp">
+      <button id="btnOpen" title="Abrir imagen"><svg class="ic"><use href="#i-open"/></svg><span class="lbl">Abrir imagen</span></button>
+    </div>
+    <div class="grp">
+      <button id="btnProcess" class="primary" title="Procesar"><svg class="ic"><use href="#i-play"/></svg><span class="lbl">Procesar</span></button>
+      <button id="btnClean" title="Limpiar geometría"><svg class="ic"><use href="#i-clean"/></svg><span class="lbl">Limpiar</span></button>
+      <button id="btnAudit" title="Auditar duplicados"><svg class="ic"><use href="#i-audit"/></svg><span class="lbl">Auditar</span></button>
+    </div>
+    <div class="grp">
+      <button id="btnUndo" title="Deshacer" aria-label="Deshacer"><svg class="ic"><use href="#i-undo"/></svg></button>
+      <button id="btnRedo" title="Rehacer" aria-label="Rehacer"><svg class="ic"><use href="#i-redo"/></svg></button>
+    </div>
+    <button id="btnExport" class="accent" title="Exportar DXF"><svg class="ic"><use href="#i-dxf"/></svg><span class="lbl">Exportar DXF</span></button>
   </div>
 </header>
 
 <main class="layout">
-  <!-- PANEL IZQUIERDO -->
+  <!-- PANEL IZQUIERDO: configuración -->
   <aside class="panel left">
-    <section>
-      <h3>Imagen</h3>
-      <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/bmp" />
-      <div class="hint" id="imgInfo">Sin imagen cargada.</div>
-    </section>
+    <details class="sec" open>
+      <summary><span class="n">1</span>Imagen</summary>
+      <div class="body">
+        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/bmp" />
+        <div class="hint" id="imgInfo">Sin imagen cargada.</div>
+        <div class="hint">JPG, PNG, WEBP o BMP. También puedes arrastrar el archivo sobre el lienzo.</div>
+      </div>
+    </details>
 
-    <section>
-      <h3>Preprocesado</h3>
-      <label>Contraste <input type="range" id="contrast" min="0" max="3" step="0.01" value="1" /></label>
-      <label>Brillo <input type="range" id="brightness" min="-100" max="100" step="1" value="0" /></label>
-      <label>Umbral <input type="range" id="threshold" min="0" max="255" step="1" value="128" /></label>
-      <label>Blur <input type="range" id="blur" min="0" max="10" step="1" value="0" /></label>
-      <label>Min área <input type="range" id="minArea" min="0" max="500" step="1" value="20" /></label>
-      <label><input type="checkbox" id="invert" /> Invertir (trazo claro sobre fondo oscuro)</label>
-    </section>
+    <details class="sec" open>
+      <summary><span class="n">2</span>Preprocesamiento</summary>
+      <div class="body">
+        <label><span class="lt">Umbral <b class="v"></b></span><input type="range" id="threshold" min="0" max="255" step="1" value="128" /></label>
+        <label class="chk"><input type="checkbox" id="invert" /> Invertir (trazo claro sobre fondo oscuro)</label>
+        <details class="adv"><summary>Opciones avanzadas</summary>
+          <label><span class="lt">Contraste <b class="v"></b></span><input type="range" id="contrast" min="0" max="3" step="0.01" value="1" /></label>
+          <label><span class="lt">Brillo <b class="v"></b></span><input type="range" id="brightness" min="-100" max="100" step="1" value="0" /></label>
+          <label><span class="lt">Blur <b class="v"></b></span><input type="range" id="blur" min="0" max="10" step="1" value="0" /></label>
+          <label><span class="lt">Min área (px) <b class="v"></b></span><input type="range" id="minArea" min="0" max="500" step="1" value="20" /></label>
+        </details>
+      </div>
+    </details>
 
-    <section>
-      <h3>Vectorización</h3>
-      <label><input type="radio" name="mode" value="smart" checked /> SMART</label>
-      <label><input type="radio" name="mode" value="centerline" /> CENTERLINE</label>
-      <label><input type="radio" name="mode" value="outline" /> OUTLINE</label>
-      <label>Simplificación (px) <input type="range" id="simplify" min="0" max="5" step="0.1" value="1.2" /></label>
-      <label>Grosor máx. trazo (px) <input type="range" id="strokeMax" min="1" max="40" step="1" value="12" /></label>
-    </section>
+    <details class="sec" open>
+      <summary><span class="n">3</span>Vectorización</summary>
+      <div class="body">
+        <div class="modes">
+          <label class="chk"><input type="radio" name="mode" value="smart" checked /> <span><b>SMART</b> <em>elige el método automáticamente</em></span></label>
+          <label class="chk"><input type="radio" name="mode" value="centerline" /> <span><b>CENTERLINE</b> <em>una línea central por trazo</em></span></label>
+          <label class="chk"><input type="radio" name="mode" value="outline" /> <span><b>OUTLINE</b> <em>contornos de las formas</em></span></label>
+        </div>
+        <details class="adv"><summary>Opciones avanzadas</summary>
+          <label><span class="lt">Simplificación (px) <b class="v"></b></span><input type="range" id="simplify" min="0" max="5" step="0.1" value="1.2" /></label>
+          <label><span class="lt">Grosor máx. trazo (px) <b class="v"></b></span><input type="range" id="strokeMax" min="1" max="40" step="1" value="12" /></label>
+        </details>
+      </div>
+    </details>
 
-    <section>
-      <h3>Limpieza de duplicados</h3>
-      <label>Tolerancia (px) <input type="range" id="tol" min="0.1" max="5" step="0.1" value="1" /></label>
-      <label>Ángulo tol. (°) <input type="range" id="angTol" min="0.5" max="10" step="0.5" value="3" /></label>
-      <label><input type="checkbox" id="mergeCollinear" checked /> Unificar colineales</label>
-    </section>
+    <details class="sec" open>
+      <summary><span class="n">4</span>Limpieza de geometría</summary>
+      <div class="body">
+        <label class="chk"><input type="checkbox" id="mergeCollinear" checked /> Unificar colineales</label>
+        <details class="adv"><summary>Opciones avanzadas</summary>
+          <label><span class="lt">Tolerancia (px) <b class="v"></b></span><input type="range" id="tol" min="0.1" max="5" step="0.1" value="1" /></label>
+          <label><span class="lt">Ángulo tol. (°) <b class="v"></b></span><input type="range" id="angTol" min="0.5" max="10" step="0.5" value="3" /></label>
+        </details>
+      </div>
+    </details>
 
-    <section>
-      <h3>Exportación</h3>
-      <label>Unidades
-        <select id="units">
-          <option value="mm">Milímetros</option>
-          <option value="cm">Centímetros</option>
-          <option value="in">Pulgadas</option>
-        </select>
-      </label>
-      <label>Escala <input type="number" id="scale" value="1" step="0.01" min="0.01" /></label>
-      <label>Decimales <input type="number" id="decimals" value="3" min="0" max="6" /></label>
-    </section>
+    <details class="sec" open>
+      <summary><span class="n">5</span>Exportación</summary>
+      <div class="body">
+        <label><span class="lt">Unidades</span>
+          <select id="units">
+            <option value="mm">Milímetros</option>
+            <option value="cm">Centímetros</option>
+            <option value="in">Pulgadas</option>
+          </select>
+        </label>
+        <label><span class="lt">Escala</span><input type="number" id="scale" value="1" step="0.01" min="0.01" /></label>
+        <details class="adv"><summary>Opciones avanzadas</summary>
+          <label><span class="lt">Decimales</span><input type="number" id="decimals" value="3" min="0" max="6" /></label>
+        </details>
+      </div>
+    </details>
   </aside>
 
-  <!-- PANEL CENTRAL -->
+  <!-- ESPACIO DE TRABAJO -->
   <section class="workspace">
     <div class="toolbar">
-      <button id="btnFit">Ajustar</button>
-      <button id="btnZoomIn">+</button>
-      <button id="btnZoomOut">−</button>
-      <label><input type="checkbox" id="showImage" checked /> Imagen</label>
-      <label><input type="checkbox" id="showVectors" checked /> Vectores</label>
-      <label><input type="checkbox" id="showNodes" /> Nodos</label>
-      <label>Color <input type="color" id="vecColor" value="#00e0ff" /></label>
+      <div class="tg">
+        <button id="btnFit" title="Ajustar a la vista"><svg class="ic"><use href="#i-fit"/></svg><span class="lbl">Ajustar</span></button>
+        <button id="btnZoomOut" title="Alejar" aria-label="Alejar">−</button>
+        <button id="btnZoomIn" title="Acercar" aria-label="Acercar">+</button>
+      </div>
+      <div class="tg">
+        <label class="tgl"><input type="checkbox" id="showImage" checked /><span>Imagen</span></label>
+        <label class="tgl"><input type="checkbox" id="showVectors" checked /><span>Vectores</span></label>
+        <label class="tgl"><input type="checkbox" id="showNodes" /><span>Nodos</span></label>
+      </div>
+      <label class="clr">Color <input type="color" id="vecColor" value="#00e0ff" /></label>
     </div>
     <div class="canvas-wrap" id="canvasWrap">
       <canvas id="view"></canvas>
@@ -87,22 +136,29 @@
     </div>
   </section>
 
-  <!-- PANEL DERECHO -->
+  <!-- PANEL DERECHO: resultados -->
   <aside class="panel right">
-    <section>
-      <h3>Estadísticas</h3>
-      <div id="stats" class="stats">—</div>
-    </section>
-    <section>
-      <h3>Auditoría</h3>
-      <div id="audit" class="stats">Sin auditoría ejecutada.</div>
-    </section>
-    <section>
-      <h3>Registro</h3>
-      <div id="log" class="log"></div>
-    </section>
+    <details class="sec" open>
+      <summary>Estadísticas</summary>
+      <div class="body"><div id="stats" class="stats">—</div></div>
+    </details>
+    <details class="sec" open>
+      <summary>Auditoría</summary>
+      <div class="body"><div id="audit" class="stats">Sin auditoría ejecutada.</div></div>
+    </details>
+    <details class="sec" open>
+      <summary>Registro</summary>
+      <div class="body"><div id="log" class="log"></div></div>
+    </details>
   </aside>
 </main>
+
+<footer class="statusbar">
+  <span class="si"><i class="dot" id="stDot"></i><span id="stProc">Listo</span></span>
+  <span class="si" id="stDims">Sin imagen cargada.</span>
+  <span class="si" id="stUnits"></span>
+  <span class="si grow" id="stOp"></span>
+</footer>
 
 <script src="js/imageProcessor.js"></script>
 <script src="js/centerline.js"></script>
@@ -114,5 +170,6 @@
 <script src="js/vectorEditor.js"></script>
 <script src="js/qualityChecker.js"></script>
 <script src="js/app.js"></script>
+<script src="js/ui.js"></script>
 </body>
 </html>
