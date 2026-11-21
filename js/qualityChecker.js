@@ -13,13 +13,14 @@ window.QualityChecker = (function(){
     return { lineas, polilineas, cerradas, abiertas };
   }
 
-  function audit(entities){
+  // [CORRECCIÓN] opts.merge respeta el checkbox "Unificar colineales" (antes siempre activo).
+  function audit(entities, opts){
     // auditoría rápida usando el detector
     const polys = entities.filter(e=>e.type==='polyline').map(e=>e.points);
-    const r = window.DuplicateDetector.run(polys, {tol:0.5, angTol:1});
+    const r = window.DuplicateDetector.run(polys, {tol:0.5, angTol:1, merge: !opts || opts.merge !== false});
     return {
       duplicados: r.stats.segmentosDuplicadosEncontrados,
-      eliminados: r.stats.segmentosDuplicadosEliminados,
+      eliminados: 0, // [CORRECCIÓN] auditar no modifica la geometría: no elimina nada (antes repetía "duplicados")
       unificados: r.stats.puntosColinealesEliminados,
       ok: r.stats.segmentosDuplicadosEncontrados===0,
     };
